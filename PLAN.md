@@ -8,7 +8,7 @@ GIMP 3 work is in
 
 ## 1. First version (done)
 
-- [x] Operation `dof:depth-of-field`: focus depth, depth of field, blur
+- [x] Operation `depth:blur`: focus depth, sharp range, blur
       radius, depth convention, bokeh circle / polygon / ring, highlights
 - [x] Depth precedence and filling behind (docs/design.md)
 - [x] Synthetic test scene and `tests/run.sh`; headless GIMP test

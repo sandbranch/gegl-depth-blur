@@ -1,7 +1,7 @@
 /*
- * Depth of field GEGL operation
+ * Depth blur GEGL operation
  *
- * depth-of-field.c
+ * depth-blur.c
  * Copyright 2026 by David
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,18 +26,18 @@
 
 #ifdef GEGL_PROPERTIES
 
-enum_start (dof_shape)
-  enum_value (DOF_SHAPE_CIRCLE,  "circle",  N_("Circle"))
-  enum_value (DOF_SHAPE_POLYGON, "polygon", N_("Polygon"))
-  enum_value (DOF_SHAPE_RING,    "ring",    N_("Ring"))
-enum_end (DofShape)
+enum_start (depth_blur_shape)
+  enum_value (DEPTH_BLUR_SHAPE_CIRCLE,  "circle",  N_("Circle"))
+  enum_value (DEPTH_BLUR_SHAPE_POLYGON, "polygon", N_("Polygon"))
+  enum_value (DEPTH_BLUR_SHAPE_RING,    "ring",    N_("Ring"))
+enum_end (DepthBlurShape)
 
 property_double (focus, _("Focus depth"), 0.5)
   description (_("The value of the depth map that is in focus"))
   value_range (0.0, 1.0)
   ui_digits (3)
 
-property_double (focus_range, _("Depth of field"), 0.0)
+property_double (sharp_range, _("Sharp range"), 0.0)
   description (_("How far in front of and behind the focus depth "
                  "everything stays sharp, in values of the depth map"))
   value_range (0.0, 1.0)
@@ -55,8 +55,8 @@ property_boolean (white_is_near, _("White is near"), TRUE)
                  "the depth maps of most depth estimation tools. Turn off "
                  "when black is near."))
 
-property_enum (shape, _("Bokeh shape"), DofShape, dof_shape,
-               DOF_SHAPE_CIRCLE)
+property_enum (shape, _("Bokeh shape"), DepthBlurShape, depth_blur_shape,
+               DEPTH_BLUR_SHAPE_CIRCLE)
   description (_("The shape that out-of-focus points of light take: the "
                  "shape of the aperture of the lens"))
 
@@ -99,8 +99,8 @@ property_double (highlight_threshold_high, _("Highlight threshold (high)"), 1.0)
 #else
 
 #define GEGL_OP_COMPOSER
-#define GEGL_OP_NAME     depth_of_field
-#define GEGL_OP_C_SOURCE depth-of-field.c
+#define GEGL_OP_NAME     depth_blur
+#define GEGL_OP_C_SOURCE depth-blur.c
 
 #include "gegl-op.h"
 #include <math.h>
@@ -182,7 +182,7 @@ polygon_interval (gint     sides,
 }
 
 static gboolean
-shape_interval (DofShape  shape,
+shape_interval (DepthBlurShape  shape,
                 gint      sides,
                 gdouble   rotation,
                 gdouble   radius,
@@ -190,7 +190,7 @@ shape_interval (DofShape  shape,
                 gdouble  *l,
                 gdouble  *r)
 {
-  if (shape == DOF_SHAPE_POLYGON)
+  if (shape == DEPTH_BLUR_SHAPE_POLYGON)
     return polygon_interval (sides, rotation, radius, y, l, r);
 
   if (fabs (y) >= radius)
@@ -209,7 +209,7 @@ shape_interval (DofShape  shape,
 static gdouble
 kernel_add_shape (GArray   *spans,
                   gint     *reach,
-                  DofShape  shape,
+                  DepthBlurShape  shape,
                   gint      sides,
                   gdouble   rotation,
                   gdouble   radius,
@@ -264,7 +264,7 @@ kernel_add_shape (GArray   *spans,
 
 /* Returns NULL for a radius below half a pixel: no blur. */
 static Kernel *
-kernel_new (DofShape shape,
+kernel_new (DepthBlurShape shape,
             gint     sides,
             gdouble  rotation,
             gdouble  thickness,
@@ -280,12 +280,12 @@ kernel_new (DofShape shape,
 
   spans = g_array_new (FALSE, FALSE, sizeof (Span));
 
-  if (shape == DOF_SHAPE_RING)
+  if (shape == DEPTH_BLUR_SHAPE_RING)
     {
-      area = kernel_add_shape (spans, &reach, DOF_SHAPE_CIRCLE, 0, 0.0,
+      area = kernel_add_shape (spans, &reach, DEPTH_BLUR_SHAPE_CIRCLE, 0, 0.0,
                                radius, 1.0f);
       if (thickness < 1.0 && radius * (1.0 - thickness) >= 0.5)
-        area += kernel_add_shape (spans, &reach, DOF_SHAPE_CIRCLE, 0, 0.0,
+        area += kernel_add_shape (spans, &reach, DEPTH_BLUR_SHAPE_CIRCLE, 0, 0.0,
                                   radius * (1.0 - thickness), -1.0f);
     }
   else
@@ -488,13 +488,13 @@ setup_new (const GeglProperties *o)
   for (k = 0; k < setup->n_slices; k++)
     {
       gdouble t      = (gdouble) k / (setup->n_slices - 1);
-      gdouble radius = o->radius * MAX (fabs (t - focus) - o->focus_range, 0.0);
+      gdouble radius = o->radius * MAX (fabs (t - focus) - o->sharp_range, 0.0);
 
       setup->kernels[k] = kernel_new (o->shape, o->blades,
                                       o->rotation * G_PI / 180.0,
                                       o->ring_thickness, radius);
       if (radius >= 1.0)
-        setup->fill[k] = kernel_new (DOF_SHAPE_CIRCLE, 0, 0.0, 1.0, radius);
+        setup->fill[k] = kernel_new (DEPTH_BLUR_SHAPE_CIRCLE, 0, 0.0, 1.0, radius);
 
       g_assert (! setup->kernels[k] || setup->kernels[k]->reach < setup->margin);
       g_assert (! setup->fill[k]    || setup->fill[k]->reach    < setup->margin);
@@ -849,15 +849,15 @@ gegl_op_class_init (GeglOpClass *klass)
   composer_class->process                    = process;
 
   gegl_operation_class_set_keys (operation_class,
-    "name",            "dof:depth-of-field",
-    "title",           _("Depth of Field"),
+    "name",            "depth:blur",
+    "title",           _("Depth Blur"),
     "categories",      "blur",
     "description",     _("Blur an image the way a lens does, by a depth map "
                          "on the aux input: things away from the focus "
                          "depth blur, near things cover far things, and "
                          "points of light take the shape of the aperture"),
     "gimp:menu-path",  "<Image>/Filters/Blur",
-    "gimp:menu-label", _("Depth of Field..."),
+    "gimp:menu-label", _("Depth Blur..."),
     NULL);
 }
 

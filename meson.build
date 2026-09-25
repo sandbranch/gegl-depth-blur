@@ -1,4 +1,4 @@
-project('gegl-depth-of-field', 'c',
+project('gegl-depth-blur', 'c',
   version: '0.1',
   license: 'GPL-3.0-or-later',
   meson_version: '>= 0.60.0',
@@ -18,7 +18,7 @@ endif
 
 # each operation is a module of its own
 operations = {
-  'depth-of-field': ['operations/depth-of-field.c'],
+  'depth-blur': ['operations/depth-blur.c'],
 }
 
 foreach op, sources : operations
@@ -27,7 +27,7 @@ foreach op, sources : operations
     name_prefix: '',
     include_directories: 'operations',
     dependencies: [gegl_dep, math_dep],
-    c_args: ['-DGETTEXT_PACKAGE="gegl-depth-of-field"'],
+    c_args: ['-DGETTEXT_PACKAGE="gegl-depth-blur"'],
     install: true,
     install_dir: moduledir,
   )

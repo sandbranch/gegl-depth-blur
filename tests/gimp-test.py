@@ -1,4 +1,4 @@
-# Runs inside GIMP 3: applies dof:depth-of-field with the depth map layer
+# Runs inside GIMP 3: applies depth:blur with the depth map layer
 # on its aux input, the way it is used in GIMP, and exports the result.
 # Run with tests/gimp-test.sh.
 #
@@ -11,7 +11,7 @@ import gi
 gi.require_version('Gimp', '3.0')
 from gi.repository import Gimp, Gio
 
-out = os.environ['DOF_TEST_OUT']
+out = os.environ['DEPTH_BLUR_TEST_OUT']
 
 image = Gimp.file_load(Gimp.RunMode.NONINTERACTIVE,
                        Gio.File.new_for_path(os.path.join(out, 'scene.png')))
@@ -21,7 +21,7 @@ depth = Gimp.file_load_layer(Gimp.RunMode.NONINTERACTIVE, image,
 image.insert_layer(depth, None, 0)
 depth.set_visible(False)
 
-f = Gimp.DrawableFilter.new(photo, 'dof:depth-of-field', 'Depth of Field')
+f = Gimp.DrawableFilter.new(photo, 'depth:blur', 'Depth Blur')
 config = f.get_config()
 config.set_property('focus', 0.95)
 config.set_property('radius', 25.0)

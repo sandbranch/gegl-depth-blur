@@ -1,14 +1,16 @@
-# gegl-depth-of-field
+# gegl-depth-blur
 
-A depth of field filter for GIMP 3 (a GEGL operation): it blurs a photo the
-way a lens does, from a depth map. What is at the focus depth stays sharp,
-the blur grows in front of it and behind it, near things cover far things,
-and out-of-focus points of light take the shape of the aperture: a circle,
-a polygon with 3 to 12 blades, or the ring of a mirror lens.
+Depth Blur, a filter for GIMP 3 (a GEGL operation): it blurs a photo the
+way a lens does, from a depth map, for a shallow depth of field. What is
+at the focus depth stays sharp, the blur grows in front of it and behind
+it, near things cover far things, and out-of-focus points of light take
+the shape of the aperture: a circle, a polygon with 3 to 12 blades, or the
+ring of a mirror lens.
 
 It is the successor to the **Focus Blur** plug-in for GIMP 2 by Kyoichiro
 Suda, which never reached GIMP 3, and follows its model (see
-[docs/design.md](docs/design.md)). GIMP 3's own Focus Blur is a different
+[docs/design.md](docs/design.md)). It has a new name because GIMP has had
+a built-in filter called Focus Blur since 2.10.20, which is a different
 filter: it blurs around a point or shape you place, without a depth map.
 
 **Status: first working version.** See [PLAN.md](PLAN.md).
@@ -19,7 +21,7 @@ filter: it blurs around a point or shape you place, without a depth map.
    (the convention of most depth estimation tools; the filter has a switch
    for the other way round). It can be painted by hand, made with a
    gradient, or estimated from the photo by a depth estimation tool.
-2. Select the photo layer and open Filters > Blur > Depth of Field...
+2. Select the photo layer and open Filters > Blur > Depth Blur...
 3. Pick the depth map layer as the **Aux Input**.
 4. Set the **Focus depth** to the value of the depth map that should be
    sharp, and the **Blur radius**.
@@ -27,7 +29,7 @@ filter: it blurs around a point or shape you place, without a depth map.
 | Setting | What it does |
 |---|---|
 | Focus depth | the depth map value that is in focus |
-| Depth of field | how far in front of and behind the focus everything stays sharp |
+| Sharp range | how far in front of and behind the focus everything stays sharp |
 | Blur radius | the blur for a depth difference of 1 (white against black) |
 | White is near | the depth map convention |
 | Bokeh shape | circle, polygon (blades, rotation) or ring (thickness) |

@@ -30,7 +30,7 @@ github.com/JMoerman/gimp-focusblur-plugin, 2019) did:
 As in Focus Blur, the blur radius of a pixel is proportional to its
 distance in depth from the focus depth:
 
-    radius = blur_radius * max(0, |depth - focus| - depth_of_field)
+    radius = blur_radius * max(0, |depth - focus| - sharp_range)
 
 This is the physics of a thin lens when the depth map holds inverse
 distance (disparity), which is what many depth estimation tools produce
