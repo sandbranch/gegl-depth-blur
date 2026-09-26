@@ -1095,6 +1095,68 @@ test_formats (GeglBuffer *depth)
     }
 }
 
+/* The blur is linear, so it gives the same light in any RGB space; the
+ * highlights depend on the luminance, which must be that of the space the
+ * operation works in (the space of the input). The depth map is read as
+ * stored, in its own space, whatever the space of the input. */
+static void
+test_space (GeglBuffer *depth)
+{
+  const gchar *spaces[] = { "Rec2020", "ProPhoto", "Adobish" };
+  GeglBuffer  *img = make_buffer (FMT, 0, 0, 120, 100, px_texture, NULL);
+  Result       ref;
+  guint        i;
+
+  ref = render (img, depth, "radius", 15.0, "highlight-factor", 1.0,
+                "highlight-threshold-low", 0.3,
+                "highlight-threshold-high", 0.6, NULL);
+
+  for (i = 0; i < G_N_ELEMENTS (spaces); i++)
+    {
+      const Babl *space = babl_space (spaces[i]);
+      const Babl *fmt   = babl_format_with_space (FMT, space);
+      GeglBuffer *conv  = gegl_buffer_new (gegl_buffer_get_extent (img), fmt);
+      Result      r;
+      gchar      *name;
+
+      gegl_buffer_copy (img, NULL, GEGL_ABYSS_NONE, conv, NULL);
+      r = render (conv, depth, "radius", 15.0, "highlight-factor", 1.0,
+                  "highlight-threshold-low", 0.3,
+                  "highlight-threshold-high", 0.6, NULL);
+      name = g_strdup_printf ("image in %s, depth map in sRGB: same "
+                              "result", spaces[i]);
+      check_diff (name, max_diff (&ref, &r), 1e-4);
+      g_free (name);
+      result_free (&r);
+      g_object_unref (conv);
+
+      /* the same numbers in a depth map in another space */
+      {
+        const Babl *yfmt = babl_format_with_space ("Y' float", space);
+        GeglBuffer *d    = gegl_buffer_new (gegl_buffer_get_extent (depth),
+                                            yfmt);
+        gfloat     *v    = g_new (gfloat, 120 * 100);
+
+        gegl_buffer_get (depth, NULL, 1.0, babl_format ("Y' float"), v,
+                         GEGL_AUTO_ROWSTRIDE, GEGL_ABYSS_NONE);
+        gegl_buffer_set (d, NULL, 0, yfmt, v, GEGL_AUTO_ROWSTRIDE);
+        r = render (img, d, "radius", 15.0, "highlight-factor", 1.0,
+                    "highlight-threshold-low", 0.3,
+                    "highlight-threshold-high", 0.6, NULL);
+        name = g_strdup_printf ("depth map in %s is read as stored",
+                                spaces[i]);
+        check_diff (name, max_diff (&ref, &r), 0.0);
+        g_free (name);
+        result_free (&r);
+        g_free (v);
+        g_object_unref (d);
+      }
+    }
+
+  result_free (&ref);
+  g_object_unref (img);
+}
+
 /* every property at the ends of its range */
 static void
 test_ranges (GeglBuffer *img, GeglBuffer *depth)
@@ -1209,6 +1271,7 @@ main (int    argc,
   test_precedence ();
   test_pieces (img, depth);
   test_formats (depth);
+  test_space (depth);
   test_ranges (img, depth);
 
   report ("no warnings or criticals from GLib or GEGL", n_messages == 0,
