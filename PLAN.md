@@ -36,8 +36,24 @@ GIMP 3 work is in
 
 - [ ] Blur slices with a large radius at half or quarter size and scale
       them up; radius 100 on 24 MP should stay under a few seconds
+- [ ] Small pieces: every piece GEGL asks for is computed with two
+      margins of the radius around it, so rendering 1024x1024 in pieces
+      of 64 took 6 times as long as at once at radius 20, and 18 times at
+      radius 60 (measured 2026-09-26). GIMP's chunk iterator makes the
+      pieces smaller for slow filters (down to 4096 pixels). Options: a
+      get_cached_region () that rounds the piece up to the 256 pixel
+      grid, so that GEGL caches whole tiles (the result no longer
+      depends on the pieces, so this is safe); or the whole image.
+      Memory is also worth a look: about 90 MB per thread at radius 100.
 
-## 5. Release
+## 5. Upstream GEGL
+
+- [ ] Report: gegl_operation_get_source_space () ignores its pad
+      argument and always looks at "input" (gegl/operation/
+      gegl-operation.c, 0.4.72 and master as of 2026-09); this
+      operation works around it for the aux pad.
+
+## 6. Release
 
 - [ ] Before/after examples in the README
 - [ ] Offer it to the community (discuss.pixls.us, GIMP forums); ask the
