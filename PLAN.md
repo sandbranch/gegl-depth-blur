@@ -44,7 +44,8 @@ GIMP 3 work is in
       get_cached_region () that rounds the piece up to the 256 pixel
       grid, so that GEGL caches whole tiles (the result no longer
       depends on the pieces, so this is safe); or the whole image.
-      Memory is also worth a look: about 90 MB per thread at radius 100.
+      Memory is also worth a look: by the buffer sizes in process_tile (),
+      about 90 MB per thread at radius 100 (computed, not measured).
 
 ## 5. Upstream GEGL
 
