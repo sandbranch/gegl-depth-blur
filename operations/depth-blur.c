@@ -522,14 +522,17 @@ prepare (GeglOperation *operation)
 {
   const Babl *space  = gegl_operation_get_source_space (operation, "input");
   const Babl *format = babl_format_with_space ("RaGaBaA float", space);
+  const Babl *aux    = gegl_operation_get_source_format (operation, "aux");
 
   gegl_operation_set_format (operation, "input",  format);
   gegl_operation_set_format (operation, "output", format);
-  /* a depth map holds values, not light: read them as they are stored */
+  /* A depth map holds values, not light: read them as they are stored,
+   * in its own space. (gegl_operation_get_source_space () would give the
+   * space of the input whatever pad it is asked for, as of GEGL 0.4.72.)
+   */
   gegl_operation_set_format (operation, "aux",
                              babl_format_with_space ("Y' float",
-                               gegl_operation_get_source_space (operation,
-                                                                "aux")));
+                               aux ? babl_format_get_space (aux) : space));
 }
 
 static GeglRectangle
@@ -605,8 +608,13 @@ process_tile (GeglOperation *operation,
   gfloat          lo      = o->highlight_threshold_low;
   gfloat          hi      = o->highlight_threshold_high;
   gfloat         *out;
+  gdouble         lum[3];
   gsize           i;
   gint            k, x, y, c;
+
+  /* the luminance of the space the image is in */
+  babl_space_get_rgb_luminance (babl_format_get_space (format),
+                                &lum[0], &lum[1], &lum[2]);
 
   gegl_buffer_get (input,
                    GEGL_RECTANGLE (reg.x, reg.y, reg.width, reg.height),
@@ -637,7 +645,7 @@ process_tile (GeglOperation *operation,
       weight[i] = 1.0f;
       if (hl_gain > 0.0f)
         {
-          gfloat luma = 0.2126f * p[0] + 0.7152f * p[1] + 0.0722f * p[2];
+          gfloat luma = lum[0] * p[0] + lum[1] * p[1] + lum[2] * p[2];
           gfloat s;
 
           if (hi > lo)
