@@ -457,12 +457,15 @@ setup_free (Setup *setup)
   g_free (setup);
 }
 
-/* depth measured from near (0) to far (1) */
+/* depth measured from near (0) to far (1); NaN counts as 0 */
 static inline gfloat
 to_distance (const GeglProperties *o,
              gfloat                value)
 {
-  value = CLAMP (value, 0.0f, 1.0f);
+  if (! (value > 0.0f))
+    value = 0.0f;
+  else if (value > 1.0f)
+    value = 1.0f;
 
   return o->white_is_near ? 1.0f - value : value;
 }
@@ -607,7 +610,13 @@ process_tile (GeglOperation *operation,
 
   for (i = 0; i < n_reg; i++)
     {
-      const gfloat *p = in + i * 4;
+      gfloat *p = in + i * 4;
+
+      /* one NaN or infinity would spoil the prefix sums of its whole row,
+       * far beyond the blur radius */
+      for (c = 0; c < 4; c++)
+        if (! isfinite (p[c]))
+          p[c] = 0.0f;
 
       /* each pixel belongs to the nearest slice: splitting it between two
        * would make a sharp surface partly transparent */
