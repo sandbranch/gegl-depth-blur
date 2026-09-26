@@ -9,6 +9,14 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
  * Blurs an image the way a lens does, from a depth map on the aux input:
  * the blur grows with the distance in depth from the focus depth, nearer
  * things cover farther ones, and out-of-focus points of light take the
@@ -118,6 +126,9 @@ property_double (highlight_threshold_high, _("Highlight threshold (high)"), 1.0)
  */
 #define SLICE_CH 6
 #define ACC_CH   5
+
+/* the slice of a pixel is kept in a guint8 */
+G_STATIC_ASSERT (MAX_SLICES <= 256);
 
 /* A kernel is a list of horizontal spans, one or two per row. For an
  * output pixel x a span covers [x + l, x + r] in pixel units, where pixel
