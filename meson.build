@@ -21,8 +21,9 @@ operations = {
   'depth-blur': ['operations/depth-blur.c'],
 }
 
+modules = {}
 foreach op, sources : operations
-  shared_module(op,
+  modules += { op: shared_module(op,
     sources,
     name_prefix: '',
     include_directories: 'operations',
@@ -30,5 +31,14 @@ foreach op, sources : operations
     c_args: ['-DGETTEXT_PACKAGE="gegl-depth-blur"'],
     install: true,
     install_dir: moduledir,
-  )
+  )}
 endforeach
+
+# numerical checks of the operation: meson test -C build
+check = executable('check', 'tests/check.c',
+  dependencies: [gegl_dep, math_dep],
+  c_args: ['-DGEGL_PLUGINSDIR="@0@"'.format(
+    gegl_dep.get_variable(pkgconfig: 'pluginsdir'))],
+  install: false,
+)
+test('depth-blur', check, args: [modules['depth-blur']], timeout: 600)
