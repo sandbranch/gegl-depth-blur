@@ -1,9 +1,10 @@
 #!/bin/sh
-# Renders the test scene with a set of settings into tests/output, using the
-# operation from build/ and the GEGL of the Flatpak GIMP (or the system GEGL
-# with GIMP_FLATPAK=0).
+# Runs the numerical checks (check.sh), then renders the test scene with a
+# set of settings into tests/output, using the operation from build/ and
+# the GEGL of the Flatpak GIMP (or the system GEGL with GIMP_FLATPAK=0),
+# and checks that every render has the size of the scene.
 #
-#   tests/run.sh                     all cases
+#   tests/run.sh                     checks and all cases
 #   tests/run.sh name 'props...'     one case, e.g. tests/run.sh try 'radius=30'
 set -e
 
@@ -43,6 +44,9 @@ if [ $# -gt 0 ]; then
   exit
 fi
 
+"$here/check.sh"
+echo
+
 render focus-subject   focus=0.5  radius=20
 render focus-near      focus=0.95 radius=20
 render focus-far       focus=0.1  radius=20
@@ -51,3 +55,18 @@ render hexagon         focus=0.5  radius=20 highlight-factor=0.6 shape=polygon b
 render ring            focus=0.5  radius=20 highlight-factor=0.6 shape=ring
 render sharp-range     focus=0.5  radius=20 sharp-range=0.2
 render big             focus=0.5  radius=60
+
+python3 - "$out" <<'EOF'
+import sys
+
+from PIL import Image
+
+out = sys.argv[1]
+size = Image.open(out + "/scene.png").size
+bad = [n for n in ("focus-subject", "focus-near", "focus-far", "highlights",
+                   "hexagon", "ring", "sharp-range", "big")
+       if Image.open("%s/%s.png" % (out, n)).size != size]
+print(("FAIL  renders of another size: " + " ".join(bad)) if bad
+      else "PASS  every render has the size of the scene")
+sys.exit(1 if bad else 0)
+EOF

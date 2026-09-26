@@ -35,6 +35,9 @@ filter: it blurs around a point or shape you place, without a depth map.
 | Bokeh shape | circle, polygon (blades, rotation) or ring (thickness) |
 | Highlights | how strongly bright points turn into discs of light, above the highlight threshold |
 
+Without a depth map every pixel counts as depth 0 (black), and the whole
+image is blurred by its distance from the focus depth.
+
 GIMP merges this filter into the layer when you press OK, as it does with
 every filter that has an aux input (its own Lens Blur with a mask,
 Displace, Bump Map): GIMP cannot yet keep a reference to another layer in
@@ -59,11 +62,31 @@ Restart GIMP after installing.
 
 ## Tests
 
-- `tests/run.sh` renders a synthetic scene with a known depth map
-  (`tests/make-scene.py`) with a set of settings into `tests/output/`,
-  using the operation in `build/`.
-- `tests/gimp-test.sh` applies the installed filter inside GIMP (Flatpak,
-  no window) with the depth map layer as its aux input.
+All of them run without a window or network, print PASS or FAIL per
+case and exit with an error if any case fails. They need
+[gimp-plugin-devtools](https://github.com/sandbranch/gimp-plugin-devtools)
+next to this repository for the Flatpak GIMP (or `GIMP_FLATPAK=0` for a
+system GEGL), and Python 3 with NumPy and Pillow.
+
+- `tests/check.sh` builds the operation and `tests/check.c` into
+  `tests/output/`, once as usual and once with AddressSanitizer and
+  UndefinedBehaviorSanitizer, and runs the checks with both: flat images
+  stay flat for every bokeh shape, what is at the focus stays sharp,
+  light is conserved and each bokeh has the area of its shape, a sharp
+  near subject gets no halo, alpha, images at an offset, tiny and thin
+  images, a missing or odd-sized depth map, NaN and infinite values,
+  every setting at the ends of its range, gray and 8/16-bit input, and
+  the same result however GEGL splits the work into pieces and threads.
+  `tests/check.sh quick` skips the sanitizer build. `meson test -C build`
+  runs the same checks.
+- `tests/run.sh` runs `check.sh`, then renders a synthetic scene with a
+  known depth map (`tests/make-scene.py`) with a set of settings into
+  `tests/output/`, using the operation in `build/`, to look at.
+- `tests/gimp-test.sh` applies the operation from `build/` inside GIMP
+  (Flatpak, no window, with a fresh profile in `tests/output/`, so
+  nothing is installed and your GIMP settings are not touched) with the
+  depth map layer as its aux input, and checks that the result is the
+  same as from the gegl command line.
 
 ## License
 

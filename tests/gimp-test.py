@@ -1,6 +1,7 @@
 # Runs inside GIMP 3: applies depth:blur with the depth map layer
 # on its aux input, the way it is used in GIMP, and exports the result.
-# Run with tests/gimp-test.sh.
+# Run with tests/gimp-test.sh, which compares the result with the gegl
+# command line (keep the settings here and there the same).
 #
 # GIMP (3.2, and master as of 2026-09) merges every filter with an aux
 # input into the layer: it cannot yet save a layer reference inside a
@@ -39,3 +40,4 @@ photo.merge_filter(f)
 Gimp.file_save(Gimp.RunMode.NONINTERACTIVE, image,
                Gio.File.new_for_path(os.path.join(out, 'gimp-result.png')), None)
 print('saved', os.path.join(out, 'gimp-result.png'))
+image.delete()

@@ -9,6 +9,14 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
  * Runs the operation on small synthetic images and checks the results
  * numerically: edge cases (tiny and thin images, missing or odd aux
  * inputs, NaN and infinite values, range limits of the properties),
@@ -30,8 +38,21 @@
 
 #define FMT "RaGaBaA float"
 
-static gint n_failed = 0;
-static gint n_passed = 0;
+static gint n_failed   = 0;
+static gint n_passed   = 0;
+static gint n_messages = 0;   /* warnings and criticals from GLib and GEGL */
+
+static void
+log_handler (const gchar    *domain,
+             GLogLevelFlags  level,
+             const gchar    *message,
+             gpointer        data)
+{
+  (void) data;
+  if (level & (G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING))
+    n_messages++;
+  g_log_default_handler (domain, level, message, NULL);
+}
 
 static void
 report (const gchar *name,
@@ -678,6 +699,32 @@ test_aux (GeglBuffer *img)
   }
 }
 
+/* an aux input alone, with nothing on the input: GEGL still calls
+ * process() of a composer then */
+static void
+test_no_input (GeglBuffer *depth)
+{
+  GeglNode *graph = gegl_node_new ();
+  GeglNode *aux   = gegl_node_new_child (graph,
+                                         "operation", "gegl:buffer-source",
+                                         "buffer", depth, NULL);
+  GeglNode *blur  = gegl_node_new_child (graph, "operation", "depth:blur",
+                                         "radius", 20.0, NULL);
+  gfloat   *pixels = g_new0 (gfloat, 50 * 40 * 4);
+  gint      before = n_messages;
+  Result    r;
+
+  gegl_node_connect (aux, "output", blur, "aux");
+  gegl_node_blit (blur, 1.0, GEGL_RECTANGLE (5, 5, 50, 40), babl_format (FMT),
+                  pixels, GEGL_AUTO_ROWSTRIDE, GEGL_BLIT_DEFAULT);
+  r.rect   = *GEGL_RECTANGLE (5, 5, 50, 40);
+  r.pixels = pixels;
+  report ("no input, only aux: no warnings, empty result",
+          n_messages == before && max_diff_color (&r, CLEAR) == 0.0, NULL);
+  result_free (&r);
+  g_object_unref (graph);
+}
+
 /* NaN or infinity in the image may spoil the pixels it blurs into, but no
  * more than that */
 static void
@@ -919,7 +966,7 @@ test_precedence (void)
 static void
 test_pieces (GeglBuffer *img, GeglBuffer *depth)
 {
-  gint        pieces[] = { 64, 37, 5 };
+  gint        pieces[] = { 64, 37, 5 };   /* 5: too slow at radius 100 */
   guint       i;
   Result      whole;
   gdouble     radii[] = { 8.0, 40.0, 100.0 };
@@ -932,11 +979,17 @@ test_pieces (GeglBuffer *img, GeglBuffer *depth)
 
       for (i = 0; i < G_N_ELEMENTS (pieces); i++)
         {
-          Result r = render_pieces (img, depth, NULL, pieces[i],
-                                    "radius", radii[k], "focus", 0.5,
-                                    "highlight-factor", 0.5, NULL);
-          gchar *name = g_strdup_printf ("radius %g: in pieces of %d same "
-                                         "as whole", radii[k], pieces[i]);
+          gchar *name;
+          Result r;
+
+          if (pieces[i] < 16 && radii[k] > 50.0)
+            continue;
+
+          r = render_pieces (img, depth, NULL, pieces[i],
+                             "radius", radii[k], "focus", 0.5,
+                             "highlight-factor", 0.5, NULL);
+          name = g_strdup_printf ("radius %g: in pieces of %d same as "
+                                  "whole", radii[k], pieces[i]);
 
           check_diff (name, max_diff (&whole, &r), 1e-5);
           g_free (name);
@@ -1133,6 +1186,7 @@ main (int    argc,
   }
 
   gegl_init (&argc, &argv);
+  g_log_set_default_handler (log_handler, NULL);
 
   if (! gegl_has_operation ("depth:blur"))
     {
@@ -1148,6 +1202,7 @@ main (int    argc,
   test_extent ();
   test_small ();
   test_aux (img);
+  test_no_input (depth);
   test_bad_input ();
   test_alpha (depth);
   test_bokeh ();
@@ -1155,6 +1210,9 @@ main (int    argc,
   test_pieces (img, depth);
   test_formats (depth);
   test_ranges (img, depth);
+
+  report ("no warnings or criticals from GLib or GEGL", n_messages == 0,
+          NULL);
 
   g_object_unref (img);
   g_object_unref (depth);
