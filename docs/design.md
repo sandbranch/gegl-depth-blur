@@ -58,7 +58,15 @@ This operation computes the same result by slices:
    its own coverage, its colors never mix with those of other slices.
 3. **Fill behind**: before a slice is laid down, the holes that nearer
    slices left in what is behind are filled by spreading what is behind
-   into them, over the slice's blur radius (a normalized blur).
+   into them, over the slice's blur radius (a normalized blur). What is
+   spread is the stack of the farther slices alone, not what earlier
+   fills put into the holes: spreading those again with each slice
+   reached far beyond the margins of a tile, so the result changed with
+   the tiles and threads GEGL splits the image into (by up to 0.13 at
+   occlusion edges, seen in `tests/check.c`). A hole is filled fully
+   where the blurred coverage of what is behind is one half or more (at
+   its edge) and less towards where it ends, so that the fills of
+   neighboring slices meet without a step.
 4. The slice is laid over what is behind it with its blurred coverage
    (Porter-Duff over). Whatever stays uncovered takes the colors of what
    covers it partly.

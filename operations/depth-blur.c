@@ -588,6 +588,7 @@ process_tile (GeglOperation *operation,
   gfloat         *slice   = g_new (gfloat, n_reg * SLICE_CH);
   gdouble        *prefix  = g_new (gdouble, (gsize) (reg.width + 1) * reg.height * SLICE_CH);
   gfloat         *acc     = g_new0 (gfloat, n_work * ACC_CH);
+  gfloat         *behind  = g_new0 (gfloat, n_work * ACC_CH);
   gfloat         *tmp     = g_new (gfloat, n_work * SLICE_CH);
   gfloat          hl_gain = exp2f (10.0f * o->highlight_factor) - 1.0f;
   gfloat          lo      = o->highlight_threshold_low;
@@ -696,6 +697,15 @@ process_tile (GeglOperation *operation,
       /* Fill behind: where nearer slices left holes in what lies behind,
        * spread what lies behind into them, so that the blurred edge of
        * this slice shows it rather than nothing.
+       *
+       * What is spread is the stack of the farther slices alone (behind),
+       * not what earlier fills added to acc: those would spread again
+       * with each slice, much farther than the margins of a tile, and the
+       * result would change with the tiles and threads that GEGL uses.
+       * A hole is filled as far as the blurred coverage of what lies
+       * behind reaches, fully from where that is one half (the edge of
+       * what lies behind), fading to nothing where it ends, so that the
+       * fills of neighboring slices meet without a step.
        */
       if (fill)
         {
@@ -706,7 +716,7 @@ process_tile (GeglOperation *operation,
 
           if (rect_intersect (&farea, &area, &inner))
             {
-              blur_rect (acc, ACC_CH, &work, prefix, fill, &farea, tmp);
+              blur_rect (behind, ACC_CH, &work, prefix, fill, &farea, tmp);
 
               for (y = 0; y < farea.height; y++)
                 for (x = 0; x < farea.width; x++)
@@ -718,9 +728,11 @@ process_tile (GeglOperation *operation,
 
                     if (hole > EPSILON && f[4] > EPSILON)
                       {
+                        gfloat w = hole * MIN (2.0f * f[4], 1.0f);
+
                         for (c = 0; c < 4; c++)
-                          a[c] += hole * f[c] / f[4];
-                        a[4] = 1.0f;
+                          a[c] += w * f[c] / f[4];
+                        a[4] += w;
                       }
                   }
             }
@@ -743,8 +755,10 @@ process_tile (GeglOperation *operation,
         for (x = 0; x < area.width; x++)
           {
             gfloat *s = tmp + ((gsize) y * area.width + x) * SLICE_CH;
-            gfloat *a = acc + ((gsize) (area.y - work.y + y) * work.width
-                               + (area.x - work.x + x)) * ACC_CH;
+            gsize   j = ((gsize) (area.y - work.y + y) * work.width
+                         + (area.x - work.x + x)) * ACC_CH;
+            gfloat *a = acc + j;
+            gfloat *b = behind + j;
             gfloat  cover;
 
             if (s[5] <= EPSILON || s[4] <= EPSILON)
@@ -753,8 +767,14 @@ process_tile (GeglOperation *operation,
             cover = MIN (s[5], 1.0f);
 
             for (c = 0; c < 4; c++)
-              a[c] = cover * s[c] / s[4] + (1.0f - cover) * a[c];
+              {
+                gfloat color = cover * s[c] / s[4];
+
+                a[c] = color + (1.0f - cover) * a[c];
+                b[c] = color + (1.0f - cover) * b[c];
+              }
             a[4] = cover + (1.0f - cover) * a[4];
+            b[4] = cover + (1.0f - cover) * b[4];
           }
 
       for (y = by0; y <= by1; y++)
@@ -785,6 +805,7 @@ process_tile (GeglOperation *operation,
 
   g_free (out);
   g_free (tmp);
+  g_free (behind);
   g_free (acc);
   g_free (prefix);
   g_free (slice);
