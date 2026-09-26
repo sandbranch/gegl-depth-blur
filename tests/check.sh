@@ -49,13 +49,19 @@ grep -qE '^[0-9]+ passed, 0 failed' "$out/check.log" || status=1
 echo
 echo "== AddressSanitizer and UndefinedBehaviorSanitizer build"
 build build-asan -Db_sanitize=address,undefined -Db_lundef=false
-# GEGL and the libraries under it leak on purpose at exit (caches, type
-# registrations): leaks count only when the stack of the allocation goes
-# through our code (depth-blur.c, or the helpers in check.c below main)
+# GEGL, babl and the libraries under them keep caches until the end on
+# purpose (types, conversions): a leak counts only when our code made the
+# allocation itself, that is, when the first frame after the allocator is
+# in depth-blur.c or check.c. GEGL counts leaked buffers itself (checked
+# below).
+rm -rf "$out/tmp-asan"
+mkdir -p "$out/tmp-asan"
 in_sdk "ASAN_OPTIONS=detect_leaks=1:exitcode=0 \
   UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  TMPDIR=tests/output/tmp-asan DEPTH_BLUR_CHECK_KEEP_MODULE=1 \
   tests/output/build-asan/check tests/output/build-asan/depth-blur.so" \
   >"$out/check-asan.log" 2>&1 || status=1
+rm -rf "$out/tmp-asan"
 
 fails=$(grep -c '^FAIL' "$out/check-asan.log" || true)
 passes=$(grep -c '^PASS' "$out/check-asan.log" || true)
@@ -73,17 +79,29 @@ else
 fi
 
 ours=$(awk '
-  /^(Direct|Indirect) leak/ { if (block != "" && mine) n++; block = $0; mine = 0; next }
+  function done() { if (block != "" && mine) n++; block = ""; mine = 0 }
+  /^(Direct|Indirect) leak/ { done(); block = $0; first = 1; next }
   /^ *#[0-9]+ / && block != "" {
-    if ($0 ~ /depth-blur\.c/ || ($0 ~ /check\.c/ && $0 !~ / in main /)) mine = 1
+    if (first && $0 !~ / in (malloc|calloc|realloc|g_malloc|g_malloc0|g_realloc|g_try_malloc|g_malloc_n|g_malloc0_n|g_realloc_n|g_strdup|g_strndup|g_memdup2|g_array_[a-z_]*|g_slice_[a-z_]*) /) {
+      first = 0
+      if ($0 ~ /(depth-blur|check)\.c/) mine = 1
+    }
   }
-  END { if (block != "" && mine) n++; print n + 0 }' "$out/check-asan.log")
+  END { done(); print n + 0 }' "$out/check-asan.log")
 all=$(grep -cE '^(Direct|Indirect) leak' "$out/check-asan.log" || true)
 if [ "$ours" = 0 ]; then
   echo "PASS  no leaks in depth-blur ($all leaks inside GEGL and its libraries)"
 else
   echo "FAIL  $ours leaks through depth-blur.c or check.c, see tests/output/check-asan.log"
   status=1
+fi
+
+if grep -q 'GeglBuffers leaked' "$out/check.log" "$out/check-asan.log"; then
+  echo "FAIL  GEGL reports leaked buffers:"
+  grep -h 'GeglBuffers leaked' "$out/check.log" "$out/check-asan.log"
+  status=1
+else
+  echo "PASS  no leaked GeglBuffers"
 fi
 
 echo

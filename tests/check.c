@@ -1337,9 +1337,13 @@ main (int    argc,
   gegl_exit ();
 
   /* GEGL loads the module again when it is used after a pause: remove it
-   * only at the end */
-  unlink (link);
-  g_rmdir (dir);
+   * only at the end, or not at all for LeakSanitizer, which needs it to
+   * name the functions when it reports after main () */
+  if (! g_getenv ("DEPTH_BLUR_CHECK_KEEP_MODULE"))
+    {
+      unlink (link);
+      g_rmdir (dir);
+    }
   g_free (target);
   g_free (link);
   g_free (dir);
