@@ -38,8 +38,9 @@ GIMP 3 work is in
       them up; radius 100 on 24 MP should stay under a few seconds
 - [ ] Small pieces: every piece GEGL asks for is computed with two
       margins of the radius around it, so rendering 1024x1024 in pieces
-      of 64 took 6 times as long as at once at radius 20, and 18 times at
-      radius 60 (measured 2026-09-26). GIMP's chunk iterator makes the
+      of 64 took 7 times as long as at once at radius 20, and 18 times at
+      radius 60 (2026-09-26, `ninja -C build bench-pieces`, see
+      tests/bench-pieces.c). GIMP's chunk iterator makes the
       pieces smaller for slow filters (down to 4096 pixels). Options: a
       get_cached_region () that rounds the piece up to the 256 pixel
       grid, so that GEGL caches whole tiles (the result no longer

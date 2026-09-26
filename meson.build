@@ -42,3 +42,11 @@ check = executable('check', 'tests/check.c',
   install: false,
 )
 test('depth-blur', check, args: [modules['depth-blur']], timeout: 600)
+
+# how long it takes in pieces, as GIMP renders it (PLAN.md): not built by
+# default, ninja -C build bench-pieces
+executable('bench-pieces', 'tests/bench-pieces.c',
+  dependencies: [gegl_dep],
+  install: false,
+  build_by_default: false,
+)
