@@ -898,6 +898,60 @@ test_bokeh (void)
     }
 }
 
+/* A triangle points up at rotation 0 and turns counterclockwise on the
+ * screen (the dial in GIMP shows the angle counterclockwise): its tip,
+ * the farthest lit pixel from the point of light, is up at 0 and at the
+ * left at 90 degrees. */
+static void
+test_rotation (void)
+{
+  const gfloat black[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+  gfloat       white[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+  gdouble      angles[] = { 0.0, 90.0 };
+  const gchar *want[]   = { "up", "left" };
+  guint        i;
+
+  for (i = 0; i < G_N_ELEMENTS (angles); i++)
+    {
+      GeglBuffer *img = make_buffer (FMT, 0, 0, 101, 101, px_color,
+                                     (gpointer) black);
+      Result      r;
+      gint        x, y, up = 0, down = 0, left = 0, right = 0;
+      const gchar *tip;
+      gchar      *name;
+
+      gegl_buffer_set (img, GEGL_RECTANGLE (50, 50, 1, 1), 0,
+                       babl_format (FMT), white, GEGL_AUTO_ROWSTRIDE);
+      r = render (img, NULL, "focus", 1.0, "radius", 30.0, "shape", 1,
+                  "blades", 3, "rotation", angles[i], NULL);
+      for (y = 0; y < 101; y++)
+        for (x = 0; x < 101; x++)
+          if (pixel_at (&r, x, y)[0] > 1e-5f)
+            {
+              up    = MAX (up,    50 - y);
+              down  = MAX (down,  y - 50);
+              left  = MAX (left,  50 - x);
+              right = MAX (right, x - 50);
+            }
+      tip = up    > down + 5 && up    > MAX (left, right) ? "up"    :
+            down  > up + 5   && down  > MAX (left, right) ? "down"  :
+            left  > right + 5 && left > MAX (up, down)    ? "left"  :
+            right > left + 5 && right > MAX (up, down)    ? "right" : "?";
+      name = g_strdup_printf ("triangle at %g degrees points %s", angles[i],
+                              want[i]);
+      {
+        gchar *detail = g_strdup_printf ("points %s (reach up %d down %d "
+                                         "left %d right %d)", tip, up, down,
+                                         left, right);
+        report (name, strcmp (tip, want[i]) == 0, detail);
+        g_free (detail);
+      }
+      g_free (name);
+      result_free (&r);
+      g_object_unref (img);
+    }
+}
+
 /* Depth precedence: a sharp near subject is not bled over by the blurred
  * background, while a blurred near subject spreads over the sharp
  * background.
@@ -1268,6 +1322,7 @@ main (int    argc,
   test_bad_input ();
   test_alpha (depth);
   test_bokeh ();
+  test_rotation ();
   test_precedence ();
   test_pieces (img, depth);
   test_formats (depth);
