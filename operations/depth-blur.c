@@ -164,8 +164,9 @@ polygon_interval (gint     sides,
 
   for (i = 0; i < sides; i++)
     {
-      /* one vertex points up at rotation 0, so an even number of blades
-       * has a flat side at the bottom and top */
+      /* In kernel offsets, where y grows down: the bokeh of a point is the
+       * kernel turned by half a turn, so this vertex, down in the kernel,
+       * points up in the bokeh at rotation 0 */
       gdouble a0 = rotation + G_PI / 2 + 2 * G_PI * i / sides;
       gdouble a1 = rotation + G_PI / 2 + 2 * G_PI * (i + 1) / sides;
       gdouble x0 = radius * cos (a0), y0 = radius * sin (a0);
@@ -504,8 +505,10 @@ setup_new (const GeglProperties *o)
       gdouble t      = (gdouble) k / (setup->n_slices - 1);
       gdouble radius = o->radius * MAX (fabs (t - focus) - o->sharp_range, 0.0);
 
+      /* the rotation is counterclockwise on the screen, where y grows
+       * down: clockwise in the offsets */
       setup->kernels[k] = kernel_new (o->shape, o->blades,
-                                      o->rotation * G_PI / 180.0,
+                                      -o->rotation * G_PI / 180.0,
                                       o->ring_thickness, radius);
       if (radius >= 1.0)
         setup->fill[k] = kernel_new (DEPTH_BLUR_SHAPE_CIRCLE, 0, 0.0, 1.0, radius);
