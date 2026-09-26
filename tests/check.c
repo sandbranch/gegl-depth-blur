@@ -154,6 +154,22 @@ px_shifted (gint x, gint y, gfloat *p, gpointer data)
   ((const Shifted *) data)->func (x + 37, y - 11, p, NULL);
 }
 
+/* the same at four times the size, with a long slope */
+static void
+px_depth_big (gint x, gint y, gfloat *p, gpointer data)
+{
+  gfloat d = 0.1f;
+
+  (void) data;
+  if (y > 120)
+    d = 0.1f + 0.8f * CLAMP ((y - 120) / 200.0f, 0.0f, 1.0f);
+  if ((x - 240) * (x - 240) + (y - 140) * (y - 140) < 90 * 90)
+    d = 0.5f;
+  if (x > 60 && x < 110)
+    d = 0.95f;
+  p[0] = d;
+}
+
 /* running the operation ----------------------------------------------- */
 
 typedef struct
@@ -297,6 +313,35 @@ read_buffer (GeglBuffer *buffer)
                    GEGL_AUTO_ROWSTRIDE, GEGL_ABYSS_NONE);
 
   return r;
+}
+
+/* with $DEPTH_BLUR_CHECK_SAVE set to a folder, saves a result there as
+ * name.png, to look at */
+static void
+save (const Result *r, const gchar *name)
+{
+  const gchar *dir = g_getenv ("DEPTH_BLUR_CHECK_SAVE");
+  GeglBuffer  *buffer;
+  GeglNode    *graph, *src, *sink;
+  gchar       *path;
+
+  if (! dir)
+    return;
+
+  buffer = gegl_buffer_new (&r->rect, babl_format (FMT));
+  gegl_buffer_set (buffer, &r->rect, 0, babl_format (FMT), r->pixels,
+                   GEGL_AUTO_ROWSTRIDE);
+  path  = g_strdup_printf ("%s/%s.png", dir, name);
+  graph = gegl_node_new ();
+  src   = gegl_node_new_child (graph, "operation", "gegl:buffer-source",
+                               "buffer", buffer, NULL);
+  sink  = gegl_node_new_child (graph, "operation", "gegl:png-save",
+                               "path", path, NULL);
+  gegl_node_link (src, sink);
+  gegl_node_process (sink);
+  g_object_unref (graph);
+  g_object_unref (buffer);
+  g_free (path);
 }
 
 /* measurements --------------------------------------------------------- */
@@ -877,7 +922,7 @@ test_pieces (GeglBuffer *img, GeglBuffer *depth)
   gint        pieces[] = { 64, 37, 5 };
   guint       i;
   Result      whole;
-  gdouble     radii[] = { 8.0, 40.0 };
+  gdouble     radii[] = { 8.0, 40.0, 100.0 };
   guint       k;
 
   for (k = 0; k < G_N_ELEMENTS (radii); k++)
@@ -921,18 +966,26 @@ test_pieces (GeglBuffer *img, GeglBuffer *depth)
     result_free (&whole);
   }
 
-  /* the same with one thread and with several */
+  /* the same with one thread and with several, on an image large enough
+   * that GEGL splits it between threads */
   {
-    Result one, many, again;
+    GeglBuffer *big   = make_buffer (FMT, 0, 0, 480, 320, px_texture, NULL);
+    GeglBuffer *bigd  = make_buffer ("Y' float", 0, 0, 480, 320, px_depth_big,
+                                     NULL);
+    Result      one, many, again;
 
     g_object_set (gegl_config (), "threads", 1, NULL);
-    one = render (img, depth, "radius", 25.0, NULL);
+    one = render (big, bigd, "radius", 40.0, NULL);
     g_object_set (gegl_config (), "threads", 8, NULL);
-    many  = render (img, depth, "radius", 25.0, NULL);
-    again = render (img, depth, "radius", 25.0, NULL);
+    many  = render (big, bigd, "radius", 40.0, NULL);
+    again = render (big, bigd, "radius", 40.0, NULL);
     check_diff ("one thread and eight threads agree", max_diff (&one, &many),
                 1e-5);
+    save (&one, "threads-1");
+    save (&many, "threads-8");
     check_diff ("two runs are identical", max_diff (&many, &again), 0.0);
+    g_object_unref (big);
+    g_object_unref (bigd);
     result_free (&one);
     result_free (&many);
     result_free (&again);
