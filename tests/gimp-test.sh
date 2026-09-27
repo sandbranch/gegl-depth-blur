@@ -5,11 +5,11 @@
 # the user's GIMP and its settings are not touched. Then checks that GIMP's
 # result is the same as the one from the gegl command line.
 # GEGL and GIMP run isolated from your folders (tests/isolate.sh, with
-# gimp-plugin-devtools/gimp-run.sh if it is there): HOME and the XDG
+# gimp-devtools/gimp-run.sh if it is there): HOME and the XDG
 # folders, also inside the Flatpak, point into tests/output/gimp-home, so
 # nothing lands in ~/.var/app/org.gimp.GIMP.
 # Before and after, it lists your folders of GIMP and the other apps
-# (gimp-plugin-devtools/snapshot.sh) and fails if anything there changed.
+# (gimp-devtools/snapshot.sh) and fails if anything there changed.
 set -e
 
 here=$(cd "$(dirname "$0")" && pwd)

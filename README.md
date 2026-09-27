@@ -53,7 +53,7 @@ newer).
     ninja -C build install
 
 For the Flatpak version of GIMP, build inside it with
-[gimp-plugin-devtools](https://github.com/sandbranch/gimp-plugin-devtools):
+[gimp-devtools](https://github.com/sandbranch/gimp-devtools):
 
     gimp-build.sh . meson setup build -Dmoduledir=\$GEGL_OPDIR
     gimp-build.sh . ninja -C build install
@@ -64,7 +64,7 @@ Restart GIMP after installing.
 
 All of them run without a window or network, print PASS or FAIL per
 case and exit with an error if any case fails. They need
-[gimp-plugin-devtools](https://github.com/sandbranch/gimp-plugin-devtools)
+[gimp-devtools](https://github.com/sandbranch/gimp-devtools)
 next to this repository for the Flatpak GIMP (or `GIMP_FLATPAK=0` for a
 system GEGL), and Python 3 with NumPy and Pillow.
 

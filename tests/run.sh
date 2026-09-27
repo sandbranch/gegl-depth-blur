@@ -8,11 +8,11 @@
 #   tests/run.sh name 'props...'     one case, e.g. tests/run.sh try 'radius=30'
 #
 # GEGL and GIMP run isolated from your folders (tests/isolate.sh, with
-# gimp-plugin-devtools/gimp-run.sh if it is there): HOME and the XDG
+# gimp-devtools/gimp-run.sh if it is there): HOME and the XDG
 # folders, also inside the Flatpak, point into tests/output/gimp-home, so
 # nothing lands in ~/.var/app/org.gimp.GIMP. All cases: before and after, it
 # lists your folders of GIMP and the other apps
-# (gimp-plugin-devtools/snapshot.sh) and fails if anything there changed.
+# (gimp-devtools/snapshot.sh) and fails if anything there changed.
 set -e
 
 here=$(cd "$(dirname "$0")" && pwd)

@@ -4,7 +4,7 @@
 command line and inside GIMP (headless test). Next: look at it in GIMP's
 filter dialog, then real photos with depth maps. The status of all the
 GIMP 3 work is in
-[gimp-plugin-devtools/STATUS.md](https://github.com/sandbranch/gimp-plugin-devtools/blob/main/STATUS.md).
+[gimp-devtools/STATUS.md](https://github.com/sandbranch/gimp-devtools/blob/main/STATUS.md).
 
 ## 1. First version (done)
 
