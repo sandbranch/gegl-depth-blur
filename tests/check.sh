@@ -8,13 +8,17 @@
 #   tests/check.sh           both builds
 #   tests/check.sh quick     only the usual build
 #
-# The build folders are in tests/output. Exits with 1 if anything failed.
+# The build folders are in tests/output. The builds and checks run
+# isolated from your folders (GIMP_RUN_HOME, tests/output/gimp-home: see
+# gimp-build.sh). Exits with 1 if anything failed.
 set -e
 
 here=$(cd "$(dirname "$0")" && pwd)
 top=$(dirname "$here")
 out="$here/output"
 mkdir -p "$out"
+GIMP_RUN_HOME=${GIMP_RUN_HOME:-$out/gimp-home}
+export GIMP_RUN_HOME
 
 gimp_build=${GIMP_BUILD:-$top/../gimp-plugin-devtools/gimp-build.sh}
 if [ "${GIMP_FLATPAK:-1}" = 1 ] && flatpak info org.gimp.GIMP >/dev/null 2>&1; then

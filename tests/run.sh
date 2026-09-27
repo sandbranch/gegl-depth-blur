@@ -6,12 +6,24 @@
 #
 #   tests/run.sh                     checks and all cases
 #   tests/run.sh name 'props...'     one case, e.g. tests/run.sh try 'radius=30'
+#
+# GEGL and GIMP run isolated from your folders (tests/isolate.sh, with
+# gimp-plugin-devtools/gimp-run.sh if it is there): HOME and the XDG
+# folders, also inside the Flatpak, point into tests/output/gimp-home, so
+# nothing lands in ~/.var/app/org.gimp.GIMP. All cases: before and after, it
+# lists your folders of GIMP and the other apps
+# (gimp-plugin-devtools/snapshot.sh) and fails if anything there changed.
 set -e
 
 here=$(cd "$(dirname "$0")" && pwd)
 top=$(dirname "$here")
 out="$here/output"
 mkdir -p "$out"
+src=$top
+GIMP_RUN_HOME=${GIMP_RUN_HOME:-$out/gimp-home}
+export GIMP_RUN_HOME
+# shellcheck source=SCRIPTDIR/isolate.sh
+. "$here/isolate.sh"
 
 [ -f "$out/scene.png" ] || python3 "$here/make-scene.py" "$out"
 
@@ -25,12 +37,11 @@ cp "$top/build/depth-blur.so" "$mod/"
 render () {
   name=$1; shift
   if [ "${GIMP_FLATPAK:-1}" = 1 ] && flatpak info org.gimp.GIMP >/dev/null 2>&1; then
-    flatpak run --filesystem="$here" --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" \
-      --command=gegl org.gimp.GIMP \
+    gimp_run --flatpak --filesystem="$here" --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" -- gegl \
       "$out/scene.png" -o "$out/$name.png" -- \
       depth:blur "$@" aux=[ load path="$out/depth.png" ]
   else
-    GEGL_PATH="$mod:$(pkg-config --variable=pluginsdir gegl-0.4)" gegl \
+    gimp_run --native --env=GEGL_PATH="$mod:$(pkg-config --variable=pluginsdir gegl-0.4)" -- gegl \
       "$out/scene.png" -o "$out/$name.png" -- \
       depth:blur "$@" aux=[ load path="$out/depth.png" ]
   fi
@@ -44,6 +55,7 @@ if [ $# -gt 0 ]; then
   exit
 fi
 
+snapshot_take "$out/snapshot-before.txt"
 "$here/check.sh"
 echo
 
@@ -70,3 +82,4 @@ print(("FAIL  renders of another size: " + " ".join(bad)) if bad
       else "PASS  every render has the size of the scene")
 sys.exit(1 if bad else 0)
 EOF
+snapshot_check "$out/snapshot-before.txt" ""
