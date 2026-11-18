@@ -1,16 +1,16 @@
 #!/bin/sh
 # Runs the numerical checks (check.sh), then renders the test scene with a
 # set of settings into tests/output, using the operation from build/ and
-# the GEGL of the Flatpak GIMP (or the system GEGL with GIMP_FLATPAK=0),
-# and checks that every render has the size of the scene.
+# the native GEGL that GIMP uses (the gegl program, or tests/gegl-cli.py
+# when it is not installed), and checks that every render has the size of the scene.
 #
 #   tests/run.sh                     checks and all cases
 #   tests/run.sh name 'props...'     one case, e.g. tests/run.sh try 'radius=30'
 #
 # GEGL and GIMP run isolated from your folders (tests/isolate.sh, with
 # gimp-devtools/gimp-run.sh if it is there): HOME and the XDG
-# folders, also inside the Flatpak, point into tests/output/gimp-home, so
-# nothing lands in ~/.var/app/org.gimp.GIMP. All cases: before and after, it
+# folders point into tests/output/gimp-home, so nothing lands in your own
+# GIMP, GEGL, babl or GIO folders. All cases: before and after, it
 # lists your folders of GIMP and the other apps
 # (gimp-devtools/snapshot.sh) and fails if anything there changed.
 set -e
@@ -34,15 +34,20 @@ rm -rf "$mod"
 mkdir -p "$mod"
 cp "$top/build/depth-blur.so" "$mod/"
 
+# GEGL's own operations, which GEGL_PATH replaces
+gegl_ops=$(pkg-config --variable=pluginsdir gegl-0.4)
+
+# with the gegl program (the gegl package), else the same with GEGL's
+# Python bindings (tests/gegl-cli.py)
 render () {
   name=$1; shift
-  if [ "${GIMP_FLATPAK:-1}" = 1 ] && flatpak info org.gimp.GIMP >/dev/null 2>&1; then
-    gimp_run --flatpak --filesystem="$here" --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" -- gegl \
+  if command -v gegl >/dev/null 2>&1; then
+    gimp_run --env=GEGL_PATH="$mod:$gegl_ops" -- gegl \
       "$out/scene.png" -o "$out/$name.png" -- \
       depth:blur "$@" aux=[ load path="$out/depth.png" ]
   else
-    gimp_run --native --env=GEGL_PATH="$mod:$(pkg-config --variable=pluginsdir gegl-0.4)" -- gegl \
-      "$out/scene.png" -o "$out/$name.png" -- \
+    gimp_run --env=GEGL_PATH="$mod:$gegl_ops" -- python3 "$here/gegl-cli.py" \
+      "$out/scene.png" "$out/$name.png" \
       depth:blur "$@" aux=[ load path="$out/depth.png" ]
   fi
   echo "$out/$name.png"

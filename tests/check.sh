@@ -1,9 +1,9 @@
 #!/bin/sh
 # Builds the operation and the checks of tests/check.c twice, as usual and
 # with AddressSanitizer and UndefinedBehaviorSanitizer, and runs the checks
-# with both. With the Flatpak GIMP everything builds and runs inside it
-# (gimp-devtools/gimp-build.sh, found next to this repository or at
-# $GIMP_BUILD); with GIMP_FLATPAK=0 it uses the system GEGL.
+# with both, against the native GEGL of GIMP (through
+# gimp-devtools/gimp-build.sh, found next to this repository or at
+# $GIMP_BUILD).
 #
 #   tests/check.sh           both builds
 #   tests/check.sh quick     only the usual build
@@ -21,21 +21,18 @@ GIMP_RUN_HOME=${GIMP_RUN_HOME:-$out/gimp-home}
 export GIMP_RUN_HOME
 
 gimp_build=${GIMP_BUILD:-$top/../gimp-devtools/gimp-build.sh}
-if [ "${GIMP_FLATPAK:-1}" = 1 ] && flatpak info org.gimp.GIMP >/dev/null 2>&1; then
-  [ -x "$gimp_build" ] || { echo "no gimp-build.sh at $gimp_build (set GIMP_BUILD)"; exit 1; }
-  in_sdk () { "$gimp_build" "$top" "$*"; }
-else
-  in_sdk () { (cd "$top" && sh -c "$*"); }
-fi
+[ -x "$gimp_build" ] || { echo "no gimp-build.sh at $gimp_build (set GIMP_BUILD)"; exit 1; }
+# runs a shell command line in the top folder, isolated (GIMP_RUN_HOME)
+in_build () { "$gimp_build" "$top" "$*"; }
 
 # builds into tests/output/<name> with the given meson options
 build () {
   name=$1; shift
   if [ -f "$out/$name/build.ninja" ]; then
-    in_sdk ninja -C "tests/output/$name" >/dev/null
+    in_build ninja -C "tests/output/$name" >/dev/null
   else
-    in_sdk meson setup "tests/output/$name" "$@" >/dev/null
-    in_sdk ninja -C "tests/output/$name" >/dev/null
+    in_build meson setup "tests/output/$name" "$@" >/dev/null
+    in_build ninja -C "tests/output/$name" >/dev/null
   fi
 }
 
@@ -43,7 +40,7 @@ status=0
 
 echo "== usual build"
 build build-check -Dwarning_level=2
-in_sdk "tests/output/build-check/check tests/output/build-check/depth-blur.so" \
+in_build "tests/output/build-check/check tests/output/build-check/depth-blur.so" \
   >"$out/check.log" 2>&1 || status=1
 grep -E '^(PASS|FAIL)|passed,' "$out/check.log" || true
 grep -qE '^[0-9]+ passed, 0 failed' "$out/check.log" || status=1
@@ -60,7 +57,7 @@ build build-asan -Db_sanitize=address,undefined -Db_lundef=false
 # below).
 rm -rf "$out/tmp-asan"
 mkdir -p "$out/tmp-asan"
-in_sdk "ASAN_OPTIONS=detect_leaks=1:exitcode=0 \
+in_build "ASAN_OPTIONS=detect_leaks=1:exitcode=0 \
   UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   TMPDIR=tests/output/tmp-asan DEPTH_BLUR_CHECK_KEEP_MODULE=1 \
   tests/output/build-asan/check tests/output/build-asan/depth-blur.so" \

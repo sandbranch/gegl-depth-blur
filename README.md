@@ -46,17 +46,15 @@ Duplicate the layer first to keep the original.
 
 ## Building and installing
 
-Needs meson, ninja, a C compiler and the GEGL development files (0.4.62 or
-newer).
+For the native GIMP 3. Needs meson, ninja, a C compiler and the GEGL
+development files (0.4.62 or newer); on Debian and Ubuntu:
+
+    sudo apt install gimp libgimp-3.0-dev meson ninja-build
+
+GIMP loads user operations of GEGL from `~/.local/share/gegl-0.4/plug-ins`:
 
     meson setup build -Dmoduledir=$HOME/.local/share/gegl-0.4/plug-ins
     ninja -C build install
-
-For the Flatpak version of GIMP, build inside it with
-[gimp-devtools](https://github.com/sandbranch/gimp-devtools):
-
-    gimp-build.sh . meson setup build -Dmoduledir=\$GEGL_OPDIR
-    gimp-build.sh . ninja -C build install
 
 Restart GIMP after installing.
 
@@ -65,8 +63,11 @@ Restart GIMP after installing.
 All of them run without a window or network, print PASS or FAIL per
 case and exit with an error if any case fails. They need
 [gimp-devtools](https://github.com/sandbranch/gimp-devtools)
-next to this repository for the Flatpak GIMP (or `GIMP_FLATPAK=0` for a
-system GEGL), and Python 3 with NumPy and Pillow.
+next to this repository, the native GIMP 3 (above), and Python 3 with
+NumPy, Pillow and GEGL's GObject introspection (gir1.2-gegl-0.4, which
+comes with GIMP on Debian and Ubuntu). The renders use the gegl program
+(the gegl package) when it is installed, else `tests/gegl-cli.py`, which
+does the same with GEGL's Python bindings.
 
 - `tests/check.sh` builds the operation and `tests/check.c` into
   `tests/output/`, once as usual and once with AddressSanitizer and
@@ -83,7 +84,7 @@ system GEGL), and Python 3 with NumPy and Pillow.
   known depth map (`tests/make-scene.py`) with a set of settings into
   `tests/output/`, using the operation in `build/`, to look at.
 - `tests/gimp-test.sh` applies the operation from `build/` inside GIMP
-  (Flatpak, no window, with a fresh profile in `tests/output/`, so
+  (the native GIMP, no window, with a fresh profile in `tests/output/`, so
   nothing is installed and your GIMP settings are not touched) with the
   depth map layer as its aux input, and checks that the result is the
   same as from the gegl command line.

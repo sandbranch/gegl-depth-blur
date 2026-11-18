@@ -1,13 +1,13 @@
 #!/bin/sh
-# Tests the operation from build/ inside GIMP (Flatpak), without a window:
+# Tests the operation from build/ in the native GIMP, without a window:
 # see gimp-test.py. GIMP runs with a profile of its own in tests/output and
 # loads the operation from build/, so nothing needs to be installed, and
 # the user's GIMP and its settings are not touched. Then checks that GIMP's
 # result is the same as the one from the gegl command line.
 # GEGL and GIMP run isolated from your folders (tests/isolate.sh, with
 # gimp-devtools/gimp-run.sh if it is there): HOME and the XDG
-# folders, also inside the Flatpak, point into tests/output/gimp-home, so
-# nothing lands in ~/.var/app/org.gimp.GIMP.
+# folders point into tests/output/gimp-home, so nothing lands in your own
+# GIMP, GEGL, babl or GIO folders.
 # Before and after, it lists your folders of GIMP and the other apps
 # (gimp-devtools/snapshot.sh) and fails if anything there changed.
 set -e
@@ -33,10 +33,9 @@ cp "$top/build/depth-blur.so" "$mod/"
 props="focus=0.95 radius=25 highlight-factor=0.6 shape=polygon"
 
 rm -f "$out/gimp-result.png"
-gimp_run --flatpak --filesystem="$here" \
-  --env=DEPTH_BLUR_TEST_OUT="$out" \
+gimp_run --env=DEPTH_BLUR_TEST_OUT="$out" \
   --env=GIMP3_DIRECTORY="$out/gimp-profile" \
-  --env=GEGL_PATH="$mod:/app/lib/gegl-0.4" \
+  --env=GEGL_PATH="$mod:$(pkg-config --variable=pluginsdir gegl-0.4)" \
   -- gimp-console-3.2 --no-interface --no-data --no-fonts \
   --batch-interpreter python-fu-eval \
   -b "exec(open('$here/gimp-test.py').read())" --quit
